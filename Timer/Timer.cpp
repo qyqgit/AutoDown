@@ -12,7 +12,6 @@ TCHAR szTitle[MAX_LOADSTRING];					// 标题栏文本
 TCHAR szWindowClass[MAX_LOADSTRING];			// 主窗口类名
 LPTSTR szBuffer = new TCHAR[10];
 int num = 3600;
-HWND ghWnd;
 
 // 此代码模块中包含的函数的前向声明:
 ATOM				MyRegisterClass(HINSTANCE hInstance);
@@ -44,53 +43,51 @@ void getNum(){
 	HKEY hKey;
 
 	if(RegOpenKey(HKEY_CURRENT_USER, _T("Software\\MyTimer\\Config"), &hKey) != ERROR_SUCCESS){
-		MessageBox(0, _T("error1"), _T("error1"), 0);
 		return;
 	}
 	if(RegQueryValueEx(hKey, _T("Num"), 0, &dwType, (LPBYTE)&dwNum, &dwSize) != ERROR_SUCCESS){
-		MessageBox(0, _T("error2"), _T("error2"), 0);
 		return;
 	}
 	num = dwNum;
 	RegCloseKey(hKey);
 }
 void enableAutoRun(){
-	LPCTSTR path = TEXT("Timer");
+	wchar_t pFileName[MAX_PATH] = {0};
+	LPTSTR path = new TCHAR[MAX_PATH];
+	DWORD dwRet;
 	BOOL isWOW64;
 	REGSAM p;
 	HKEY hKey;
 
+	dwRet = GetModuleFileName(NULL, pFileName, MAX_PATH);
+	wsprintf(path, _T("\"%ls\""), pFileName);
 	IsWow64Process(GetCurrentProcess(), &isWOW64);
 	if(isWOW64){
-		p = KEY_WRITE | KEY_WOW64_64KEY | KEY_ALL_ACCESS;
+		p = KEY_WRITE | KEY_WOW64_64KEY;
 	} else {
-		p = KEY_WRITE | KEY_ALL_ACCESS;
+		p = KEY_WRITE;
 	}
-	if(RegCreateKeyEx(HKEY_LOCAL_MACHINE, TEXT("Software\\Microsoft\\Windows\\CurrentVersion\\Run"), 0, NULL, 0, p, NULL, &hKey, NULL) != ERROR_SUCCESS){
+	if(RegCreateKeyEx(HKEY_CURRENT_USER, TEXT("Software\\Microsoft\\Windows\\CurrentVersion\\Run"), 0, NULL, 0, p, NULL, &hKey, NULL) != ERROR_SUCCESS){
 		return ;
 	}
-	if(RegSetValueEx(hKey, TEXT("TimerShutDown"), 0, REG_SZ, (BYTE*)path, sizeof(path)*sizeof(TCHAR)) != ERROR_SUCCESS){
+	if(RegSetValueEx(hKey, TEXT("TimerShutDown"), 0, REG_SZ, (BYTE*)path, wcslen(path)*sizeof(TCHAR)) != ERROR_SUCCESS){
 		return;
 	}
 	RegCloseKey(hKey);
 }
 void disableAutoRun(){
 	HKEY hKey;
-	int aa = 0;
-	if(RegOpenKeyEx(HKEY_LOCAL_MACHINE, _T("Software\\Microsoft\\Windows\\CurrentVersion\\Run"), 0, KEY_ALL_ACCESS, &hKey) != ERROR_SUCCESS){
-		MessageBox(0, _T("error11"), _T("error11"), 0);
+	if(RegOpenKey(HKEY_CURRENT_USER, _T("Software\\Microsoft\\Windows\\CurrentVersion\\Run"), &hKey) != ERROR_SUCCESS){
 		return;
 	}
-	aa = RegDeleteKey(hKey, TEXT("TimerShutDown"));
-	if(aa != ERROR_SUCCESS){
-		MessageBox(0, _T("error22"), _T("error22"), 0);
+	if(RegDeleteValue(hKey, TEXT("TimerShutDown")) != ERROR_SUCCESS){
 		return;
 	}
 	RegCloseKey(hKey);
 }
-void fun(){
+void CALLBACK shutDown(HWND hWnd, UINT, UINT_PTR, DWORD){
 	num--;
-	InvalidateRect(ghWnd, NULL, TRUE);
+	InvalidateRect(hWnd, NULL, TRUE);
 	if(num == 0){
 		HANDLE hToken;
 		TOKEN_PRIVILEGES tkp;
@@ -106,9 +103,9 @@ void fun(){
 		if(GetLastError() != ERROR_SUCCESS)
 			return;
 		//强制关闭计算机
-		//if(!ExitWindowsEx(EWX_SHUTDOWN | EWX_FORCE, 0))
-		//	return;
-		DestroyWindow(ghWnd);
+		if(!ExitWindowsEx(EWX_SHUTDOWN | EWX_FORCE, 0))
+			return;
+		DestroyWindow(hWnd);
 	}
 }
 int APIENTRY _tWinMain(HINSTANCE hInstance,
@@ -203,7 +200,6 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 
    hWnd = CreateWindow(szWindowClass, szTitle, WS_SYSMENU,
       CW_USEDEFAULT, CW_USEDEFAULT, 235, 70, NULL, NULL, hInstance, NULL);
-   ghWnd = hWnd;
 
    if (!hWnd)
    {
@@ -212,7 +208,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    getNum();
    ShowWindow(hWnd, nCmdShow);
    UpdateWindow(hWnd);
-   SetTimer(hWnd, 0, 1000, (TIMERPROC)fun);
+   SetTimer(hWnd, 0, 1000, shutDown);
    return TRUE;
 }
 
