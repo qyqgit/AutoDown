@@ -30,11 +30,13 @@ void setNum(DWORD dwNum){
 		p = KEY_WRITE;
 	}
 	if(RegCreateKeyEx(HKEY_CURRENT_USER, TEXT("Software\\MyTimer\\Config"), 0, NULL, 0, p, NULL, &hKey, NULL) != ERROR_SUCCESS){
-		return ;
-	}
-	if(RegSetValueEx(hKey, TEXT("Num"), 0, REG_DWORD, (BYTE*)&dwNum, sizeof(DWORD)) != ERROR_SUCCESS){
 		return;
 	}
+	if(RegSetValueEx(hKey, TEXT("Num"), 0, REG_DWORD, (BYTE*)&dwNum, sizeof(DWORD)) != ERROR_SUCCESS){
+		RegCloseKey(hKey);
+		return;
+	}
+	RegCloseKey(hKey);
 }
 void getNum(){
 	DWORD dwNum;
@@ -46,9 +48,11 @@ void getNum(){
 		return;
 	}
 	if(RegQueryValueEx(hKey, _T("Num"), 0, &dwType, (LPBYTE)&dwNum, &dwSize) != ERROR_SUCCESS){
+		RegCloseKey(hKey);
 		return;
+	}else{
+		num = dwNum;
 	}
-	num = dwNum;
 	RegCloseKey(hKey);
 }
 void enableAutoRun(){
@@ -68,11 +72,15 @@ void enableAutoRun(){
 		p = KEY_WRITE;
 	}
 	if(RegCreateKeyEx(HKEY_CURRENT_USER, TEXT("Software\\Microsoft\\Windows\\CurrentVersion\\Run"), 0, NULL, 0, p, NULL, &hKey, NULL) != ERROR_SUCCESS){
+		delete[] path;
 		return ;
 	}
 	if(RegSetValueEx(hKey, TEXT("TimerShutDown"), 0, REG_SZ, (BYTE*)path, wcslen(path)*sizeof(TCHAR)) != ERROR_SUCCESS){
+		delete[] path;
+		RegCloseKey(hKey);
 		return;
 	}
+	delete[] path;
 	RegCloseKey(hKey);
 }
 void disableAutoRun(){
@@ -81,6 +89,7 @@ void disableAutoRun(){
 		return;
 	}
 	if(RegDeleteValue(hKey, TEXT("TimerShutDown")) != ERROR_SUCCESS){
+		RegCloseKey(hKey);
 		return;
 	}
 	RegCloseKey(hKey);
